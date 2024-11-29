@@ -19,13 +19,13 @@ public class Fuzzer {
         //Seed input for mutations
         String seedInput = "<html a=\"value\">...</html>";
 
-        //List of mutators (functions that modify the input)
+        //List of mutation methods
         List<Function<String, String>> mutators = List.of(
                 Fuzzer::deleteRandomCharacter,
                 Fuzzer::insertRandomCharacter,
                 Fuzzer::flipRandomCharacter,
-                Fuzzer::duplicateRandomCharacter,     // New mutator
-                Fuzzer::switchRandomCharacterCase    // New mutator
+                Fuzzer::duplicateRandomCharacter,
+                Fuzzer::switchRandomCharacterCase
         );
 
         //Set up the process builder for the target command
@@ -35,8 +35,15 @@ public class Fuzzer {
         //Generate mutated inputs based on the seed
         List<String> mutatedInputs = generateMutatedInputs(seedInput, mutators, 10);
 
-        //Run the target command with the seed and mutated inputs
-        runCommand(builder, seedInput, mutatedInputs);
+        //Run the command with seed input and mutated inputs
+        boolean nonZeroExitCodeFlag = runCommand(builder, seedInput, mutatedInputs);
+
+        //Exit with non-zero code if any run returned a non-zero exit code
+        if (nonZeroExitCodeFlag) {
+            System.exit(1);
+        } else {
+            System.exit(0);
+        }
     }
 
     private static ProcessBuilder getProcessBuilderForCommand(String command, String workingDirectory) {
@@ -48,36 +55,40 @@ public class Fuzzer {
             builder.command("sh", "-c", command);
         }
         builder.directory(new File(workingDirectory));
-        builder.redirectErrorStream(true); // Redirect stderr to stdout for unified output
+        builder.redirectErrorStream(true); //Redirect stderr to stdout
         return builder;
     }
 
-    private static void runCommand(ProcessBuilder builder, String seedInput, List<String> mutatedInputs) {
-        //Combine seed input and mutated inputs for processing
+    private static boolean runCommand(ProcessBuilder builder, String seedInput, List<String> mutatedInputs) {
+        final Boolean[] nonZeroExitCodeFlag = {false}; //Have to use an array as workaround to allow modification inside lambda
+
         Stream.concat(Stream.of(seedInput), mutatedInputs.stream()).forEach(
                 input -> {
                     try {
-                        // Start the process
                         Process process = builder.start();
 
-                        // Write input to the process
                         OutputStream processInput = process.getOutputStream();
                         processInput.write(input.getBytes());
                         processInput.close();
 
-                        // Capture and print the process output
                         String output = readStreamIntoString(process.getInputStream());
                         System.out.printf("Input: %s\nOutput: %s\n", input, output);
 
-                        // Wait for the process to complete
-                        process.waitFor();
+                        int exitCode = process.waitFor();
+                        if (exitCode != 0) {
+                            nonZeroExitCodeFlag[0] = true;
+                        }
                     } catch (IOException | InterruptedException e) {
                         System.err.printf("Error executing command with input: %s\n", input);
                         e.printStackTrace();
+                        nonZeroExitCodeFlag[0] = true;
                     }
                 }
         );
+
+        return nonZeroExitCodeFlag[0];
     }
+
 
     private static String readStreamIntoString(InputStream inputStream) {
         BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
@@ -133,23 +144,23 @@ public class Fuzzer {
     private static String switchRandomCharacterCase(String s) {
         if (s.isEmpty()) return s;
 
-        // Check if there are any alphabetic characters in the string
+        //Check if there are any alphabetic characters in the string
         boolean hasAlphabetic = s.chars().anyMatch(Character::isAlphabetic);
         if (!hasAlphabetic) {
-            // If there are no alphabetic characters, return the original string
+            //If there are no alphabetic characters, return the original string
             return s;
         }
 
         int pos = random.nextInt(s.length());
         char c = s.charAt(pos);
 
-        // If the character is not a letter, randomly choose another character
+        //If the character is not a letter, randomly choose another character
         while (!Character.isAlphabetic(c)) {
             pos = random.nextInt(s.length());
             c = s.charAt(pos);
         }
 
-        // Toggle case for alphabetic character
+        //Toggle case for alphabetic character
         char newChar = Character.isLowerCase(c) ? Character.toUpperCase(c) : Character.toLowerCase(c);
 
         return s.substring(0, pos) + newChar + s.substring(pos + 1);
