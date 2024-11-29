@@ -17,7 +17,7 @@ public class Fuzzer {
         String workingDirectory = "./";
 
         //Seed input for mutations
-        String seedInput = "<html a=\"value\">...</html>";
+        String seedInput = "<html><head><title>Test Page</title></head><body></body></html>";
 
         //List of mutation methods
         List<Function<String, String>> mutators = List.of(
@@ -33,7 +33,7 @@ public class Fuzzer {
         System.out.printf("Command: %s\n", builder.command());
 
         //Generate mutated inputs based on the seed
-        List<String> mutatedInputs = generateMutatedInputs(seedInput, mutators, 10);
+        List<String> mutatedInputs = generateMutatedInputs(seedInput, mutators, 100);
 
         //Run the command with seed input and mutated inputs
         boolean nonZeroExitCodeFlag = runCommand(builder, seedInput, mutatedInputs);
@@ -99,8 +99,10 @@ public class Fuzzer {
 
     private static List<String> generateMutatedInputs(String seedInput, List<Function<String, String>> mutators, int count) {
         List<String> mutatedInputs = new ArrayList<>();
+        String currentInput = seedInput;
         for (int i = 0; i < count; i++) {
-            mutatedInputs.add(applyRandomMutation(seedInput, mutators));
+            currentInput = applyRandomMutation(currentInput, mutators);
+            mutatedInputs.add(currentInput);
         }
         return mutatedInputs;
     }
@@ -121,7 +123,7 @@ public class Fuzzer {
 
     private static String insertRandomCharacter(String s) {
         int pos = random.nextInt(s.length() + 1);
-        char randomChar = (char) (random.nextInt(95) + 32); //Printable ASCII (32–126)
+        char randomChar = (char) (random.nextInt(95) + 32); //Printable ASCII symbols (32–126)
         return s.substring(0, pos) + randomChar + s.substring(pos);
     }
 
