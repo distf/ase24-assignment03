@@ -17,7 +17,7 @@ public class Fuzzer {
         String workingDirectory = "./";
 
         //Seed input for mutations
-        String seedInput = "<html><head><title>Test Page</title></head><body></body></html>";
+        String seedInput = "<html a=\"value\">…</html>";
 
         //List of mutation methods
         List<Function<String, String>> mutators = List.of(
