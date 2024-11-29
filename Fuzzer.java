@@ -16,24 +16,26 @@ public class Fuzzer {
         String commandToFuzz = args[0];
         String workingDirectory = "./";
 
-        // Seed input for mutations
+        //Seed input for mutations
         String seedInput = "<html a=\"value\">...</html>";
 
-        // List of mutators (functions that modify the input)
+        //List of mutators (functions that modify the input)
         List<Function<String, String>> mutators = List.of(
                 Fuzzer::deleteRandomCharacter,
                 Fuzzer::insertRandomCharacter,
-                Fuzzer::flipRandomCharacter
+                Fuzzer::flipRandomCharacter,
+                Fuzzer::duplicateRandomCharacter,     // New mutator
+                Fuzzer::switchRandomCharacterCase    // New mutator
         );
 
-        // Set up the process builder for the target command
+        //Set up the process builder for the target command
         ProcessBuilder builder = getProcessBuilderForCommand(commandToFuzz, workingDirectory);
         System.out.printf("Command: %s\n", builder.command());
 
-        // Generate mutated inputs based on the seed
+        //Generate mutated inputs based on the seed
         List<String> mutatedInputs = generateMutatedInputs(seedInput, mutators, 10);
 
-        // Run the target command with the seed and mutated inputs
+        //Run the target command with the seed and mutated inputs
         runCommand(builder, seedInput, mutatedInputs);
     }
 
@@ -51,7 +53,7 @@ public class Fuzzer {
     }
 
     private static void runCommand(ProcessBuilder builder, String seedInput, List<String> mutatedInputs) {
-        // Combine seed input and mutated inputs for processing
+        //Combine seed input and mutated inputs for processing
         Stream.concat(Stream.of(seedInput), mutatedInputs.stream()).forEach(
                 input -> {
                     try {
@@ -93,12 +95,12 @@ public class Fuzzer {
     }
 
     private static String applyRandomMutation(String input, List<Function<String, String>> mutators) {
-        // Select a random mutator and apply it to the input
+        //Select a random mutation method and apply it to the input
         Function<String, String> mutator = mutators.get(random.nextInt(mutators.size()));
         return mutator.apply(input);
     }
 
-    // Mutation functions
+    //Mutation methods
 
     private static String deleteRandomCharacter(String s) {
         if (s.isEmpty()) return s;
@@ -108,7 +110,7 @@ public class Fuzzer {
 
     private static String insertRandomCharacter(String s) {
         int pos = random.nextInt(s.length() + 1);
-        char randomChar = (char) (random.nextInt(95) + 32); // Printable ASCII (32–126)
+        char randomChar = (char) (random.nextInt(95) + 32); //Printable ASCII (32–126)
         return s.substring(0, pos) + randomChar + s.substring(pos);
     }
 
@@ -116,8 +118,40 @@ public class Fuzzer {
         if (s.isEmpty()) return s;
         int pos = random.nextInt(s.length());
         char c = s.charAt(pos);
-        int bit = 1 << random.nextInt(7); // Flip one of the 7 bits
+        int bit = 1 << random.nextInt(7); //Flip one of the 7 bits
         char newChar = (char) (c ^ bit);
+        return s.substring(0, pos) + newChar + s.substring(pos + 1);
+    }
+
+    private static String duplicateRandomCharacter(String s) {
+        if (s.isEmpty()) return s;
+        int pos = random.nextInt(s.length());
+        char c = s.charAt(pos);
+        return s.substring(0, pos) + c + s.substring(pos); //Duplicate the character at 'pos'
+    }
+
+    private static String switchRandomCharacterCase(String s) {
+        if (s.isEmpty()) return s;
+
+        // Check if there are any alphabetic characters in the string
+        boolean hasAlphabetic = s.chars().anyMatch(Character::isAlphabetic);
+        if (!hasAlphabetic) {
+            // If there are no alphabetic characters, return the original string
+            return s;
+        }
+
+        int pos = random.nextInt(s.length());
+        char c = s.charAt(pos);
+
+        // If the character is not a letter, randomly choose another character
+        while (!Character.isAlphabetic(c)) {
+            pos = random.nextInt(s.length());
+            c = s.charAt(pos);
+        }
+
+        // Toggle case for alphabetic character
+        char newChar = Character.isLowerCase(c) ? Character.toUpperCase(c) : Character.toLowerCase(c);
+
         return s.substring(0, pos) + newChar + s.substring(pos + 1);
     }
 }
